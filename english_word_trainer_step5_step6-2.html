@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>English Word Trainer | Step 5 & 6</title>
+<style>
+:root{--ink:#28334a;--muted:#69758b;--line:#e6eaf1;--paper:#fff;--bg:#f4f6fb;--accent:#6578d8;--accent2:#8d75cf;--good:#27845c;--bad:#c45162}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
+header{padding:24px 18px 20px;background:linear-gradient(125deg,#596fcb,#8b79c9);color:white}
+.wrap{max-width:900px;margin:auto}header h1{font-size:clamp(23px,5vw,32px);margin:0 0 6px}header p{margin:0;opacity:.9;font-size:14px}
+main{max-width:900px;margin:18px auto;padding:0 14px 36px}
+.panel{background:white;border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px #26345b0a}
+.tabs,.modes{display:flex;gap:8px;flex-wrap:wrap}
+button,select,input{font:inherit}button{border:0;border-radius:12px;padding:11px 15px;background:#edf0fa;color:var(--ink);font-weight:650;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #aab5ff;outline-offset:2px}
+button.active{background:var(--accent);color:white}button.primary{background:var(--accent);color:white}button.secondary{background:#eeeafa;color:#59499a}
+button:disabled{opacity:.45;cursor:not-allowed}
+.chapter{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.chapter h2{margin:0;font-size:22px}.sub{color:var(--muted);font-size:13px;margin:5px 0 0}
+.modebtn{flex:1;min-width:125px}
+h3{margin:0 0 12px;font-size:18px}.muted{color:var(--muted)}.small{font-size:13px}
+.progress{height:8px;background:#edf0f6;border-radius:20px;overflow:hidden;margin:12px 0}.progress span{display:block;height:100%;background:linear-gradient(90deg,#6479d9,#9a7bd0);width:0}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
+.question{font-size:clamp(21px,5vw,29px);font-weight:750;text-align:center;padding:22px 8px 12px;overflow-wrap:anywhere}
+.translation{text-align:center;color:var(--muted);font-size:16px;margin-bottom:16px}
+input[type=text],select{width:100%;border:1px solid #d9deea;border-radius:12px;padding:13px;background:white;color:var(--ink)}
+.feedback{min-height:26px;margin:10px 0 0;font-weight:700;text-align:center}.good{color:var(--good)}.bad{color:var(--bad)}
+.matchlist{display:grid;gap:9px}.matchitem{display:grid;grid-template-columns:1fr 1.2fr;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:12px}.matchitem strong{overflow-wrap:anywhere}
+canvas{width:100%;height:190px;border:2px dashed #cbd2e2;border-radius:14px;touch-action:none;background:#fff;display:block}
+.canvas-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+.answer{background:#f5f6fc;border-radius:12px;padding:12px;text-align:center;font-size:21px;font-weight:750;letter-spacing:1px;margin:12px 0}
+.hidden{display:none!important}.score{font-size:30px;font-weight:800;color:var(--accent)}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:10px}
+@media(max-width:520px){.panel{padding:15px}.matchitem{grid-template-columns:1fr}.chapter{align-items:flex-start}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+<header><div class="wrap"><h1>📚 English Word Trainer</h1><p>Step 5・Step 6 の単語と表現を、意味・タイピング・手書きで練習しよう！</p></div></header>
+<main>
+<section class="panel">
+ <div class="chapter"><div><h2 id="chapterTitle">Step 5</h2><p class="sub" id="chapterSub">社会・旅行・動作など</p></div><div class="tabs"><button id="step5" class="active" onclick="setStep(5)">Step 5</button><button id="step6" onclick="setStep(6)">Step 6</button></div></div>
+</section>
+<section class="panel">
+ <h3>練習モード</h3><div class="modes">
+ <button class="modebtn active" id="modeMatch" onclick="setMode('match')">意味合わせ</button>
+ <button class="modebtn" id="modeType" onclick="setMode('type')">スペルタイピング</button>
+ <button class="modebtn" id="modeWrite" onclick="setMode('write')">手書きスペル</button>
+ <button class="modebtn" id="modePhrases" onclick="setMode('phrases')">重要表現</button>
+ </div>
+ <p class="sub" id="modeDescription">英単語と日本語の意味を選んで組み合わせよう。</p>
+</section>
+<section class="panel" id="practice">
+ <div class="row"><div><span class="small muted" id="counter">1 / 10</span><div class="progress"><span id="progressBar"></span></div></div><button onclick="shuffleCurrent()">🔀 シャッフル</button></div>
+ <div id="matchArea">
+  <h3>英単語と意味を合わせよう</h3><div class="matchlist" id="matchList"></div>
+  <div class="row" style="margin-top:14px"><button class="primary" onclick="checkMatch()">答え合わせ</button><button onclick="newRound()">次の問題</button></div><div class="feedback" id="matchFeedback"></div>
+ </div>
+ <div id="typeArea" class="hidden">
+  <h3>日本語を見て、英単語を入力しよう</h3><div class="question" id="typePrompt"></div><div class="translation" id="typeHint"></div>
+  <input id="typeInput" type="text" autocomplete="off" autocapitalize="none" placeholder="ここに英単語を入力" onkeydown="if(event.key==='Enter')checkTyping()">
+  <div class="row" style="margin-top:12px"><button class="primary" onclick="checkTyping()">答え合わせ</button><button onclick="nextQuestion()">次の問題</button></div><div class="feedback" id="typeFeedback"></div>
+ </div>
+ <div id="writeArea" class="hidden">
+  <h3>日本語を見て、英単語を手書きしよう</h3><div class="question" id="writePrompt"></div><div class="translation">下のスペースに指やペンでスペルを書いてみよう。</div>
+  <canvas id="pad"></canvas><div class="canvas-tools"><button onclick="clearPad()">消す</button><button class="primary" id="submitHandwriting" onclick="submitHandwriting()">送信して答え合わせ</button><button onclick="nextQuestion()">次の問題</button></div>
+  <div class="feedback" id="writeFeedback" aria-live="polite">指またはタッチペンで書いて、送信してね。</div>
+  <div id="writeResult" class="hidden"><div class="answer" id="recognizedText"></div><p class="small muted" style="text-align:center" id="recognitionNote"></p><div class="answer" id="answerText"></div><div class="row"><button class="primary" onclick="nextQuestion()">次の問題へ</button><button onclick="clearForRetry()">もう一度書く</button></div></div>
+ </div>
+ <div id="phraseArea" class="hidden">
+  <h3>重要表現を確認しよう</h3><div class="question" id="phrasePrompt"></div><div class="translation" id="phraseMeaning"></div>
+  <input id="phraseInput" type="text" autocomplete="off" autocapitalize="none" placeholder="英語の表現を入力" onkeydown="if(event.key==='Enter')checkPhrase()">
+  <div class="row" style="margin-top:12px"><button class="primary" onclick="checkPhrase()">答え合わせ</button><button onclick="nextQuestion()">次の問題</button></div><div class="feedback" id="phraseFeedback"></div>
+ </div>
+</section>
+<section class="panel"><div class="chapter"><div><h3 style="margin:0">今回の学習記録</h3><p class="sub">この画面を開いている間の正解数</p></div><div class="score" id="score">0</div></div><p class="small muted" id="scoreDetail">正解 0 回</p></section>
+<footer>手書きスペルはOCRで読み取って判定します。読み取り精度は文字の形や書き方によって変わるため、うまく認識されない場合は書き直してね。</footer>
+</main>
+<script>
+const data={
+5:{
+sub:"社会・旅行・仕事・動作など",
+words:[
+["social","社会の"],["survey","調査"],["news","ニュース"],["join","に参加する"],["poor","貧しい"],["rich","金持ちの"],["smoke","（たばこを）吸う"],["problem","問題"],["peace","平和"],["nationality","国籍"],["trip","（短い）旅行"],["travel","（〜に）旅をする"],["stay","滞在する"],["visit","を訪問する"],["ride","（乗り物・馬）に乗る"],["foreign","外国の"],["world","世界"],["island","島"],["palace","宮殿"],["culture","文化"],["do","をする"],["laugh","（声を出して）笑う"],["jump","飛ぶ"],["pick","を選ぶ"],["find","を見つける"],["draw","（線）を引く"],["open","を開ける"],["repeat","（を）くり返す"],["start","出発する"],["drop","を落とす"],["job","仕事"],["engineer","技師"],["factory","工場"],["build","（を）建てる"],["judge","審判"],["life","命"],["office","事務所"],["always","いつも"],["usually","たいてい"],["often","よく、たびたび"]
+],
+phrases:[
+["be poor at A","Aがへたである"],["do without A","Aなしでやっていく"],["pick A out","Aを選ぶ"],["pick A up","Aを（車で）迎えにいく、拾う"],["start doing / to do","〜し始める"],["I'm always sleepy.","私はいつも眠い。"],["I always get up early.","私はいつも早起きする。"]
+]},
+6:{
+sub:"感情・質問・行事・考えなど",
+words:[
+["feel","（痛み・感情などを）感じる"],["fun","楽しさ"],["interesting","おもしろい"],["interested","興味をもった"],["exciting","わくわくさせる"],["excited","（〜に）興奮した"],["easy","簡単な"],["difficult","難しい"],["boring","退屈な"],["sorry","（〜が）気の毒で"],["ask","（を）たずねる"],["question","質問"],["answer","（に）返事をする"],["tell","に話す"],["mean","を意味する"],["interview","面接"],["reason","理由"],["matter","問題、ことがら"],["goal","目標"],["idea","考え"],["good","よい"],["bad","悪い"],["important","重要な"],["expensive","高価な"],["real","本物の"],["true","本当の"],["false","間違った"],["write","を書く"],["address","住所"],["letter","手紙"],["party","パーティ"],["event","行事"],["festival","祭り"],["contest","競技（会）"],["celebrate","を祝う"],["memory","思い出"],["merry","楽しい"],["guest","（宿泊）客"],["role","役割"],["list","一覧表"]
+],
+phrases:[
+["guest","招待客"],["visitor","訪問客"],["customer","買い物客"],["be true of A","Aに当てはまる"],["ask for A","Aを求める"],["tell A to do","Aに〜するよう命令（忠告）する"],["mean to do","〜するつもりである"],["feel free to do","気楽に〜する"],["feel like doing","〜したい気分である"],["be excited in A","Aに興味［関心］がある"]
+]}
+};
+let step=5,mode='match',items=[],index=0,score=0,answered=false,matchChecked=false;
+const $=id=>document.getElementById(id);
+function setStep(n){step=n; $('step5').classList.toggle('active',n===5);$('step6').classList.toggle('active',n===6);$('chapterTitle').textContent='Step '+n;$('chapterSub').textContent=data[n].sub;setMode(mode)}
+function setMode(m){mode=m;['match','type','write','phrases'].forEach(x=>{$( 'mode'+x[0].toUpperCase()+x.slice(1)).classList.toggle('active',x===m);$(x+'Area').classList.toggle('hidden',x!==m)});$('modeDescription').textContent={match:'英単語と日本語の意味を選んで組み合わせよう。',type:'日本語の意味を見て、英単語を正確に入力しよう。',write:'指やタッチペンで書いて、送信すると自動で答え合わせ！',phrases:'ノートの重要表現・語句を練習しよう。'}[m];newRound();if(m==='write')requestAnimationFrame(resizeCanvas)}
+function pool(){return mode==='phrases'?data[step].phrases:data[step].words}
+function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+function newRound(){items=shuffle(pool()).slice(0,mode==='match'?5:1);index=0;answered=false;matchChecked=false;render();$('matchFeedback').textContent='';$('typeFeedback').textContent='';$('phraseFeedback').textContent='';$('writeFeedback').textContent='指またはタッチペンで書いて、送信してね。';$('writeResult').classList.add('hidden')}
+function shuffleCurrent(){newRound()}
+function render(){let total=mode==='match'?5:pool().length;$('counter').textContent=mode==='match'?'5問セット':(index+1)+' / '+total;$('progressBar').style.width=(mode==='match'?0:(index/total*100))+'%';
+if(mode==='match'){let meanings=shuffle(items.map(x=>x[1]));$('matchList').innerHTML=items.map((x,i)=>`<div class="matchitem"><strong>${i+1}. ${esc(x[0])}</strong><select data-answer="${esc(x[1])}"><option value="">意味を選択</option>${meanings.map(y=>`<option>${esc(y)}</option>`).join('')}</select></div>`).join('')}
+else{let x=items[0];$('typePrompt').textContent=x[1];$('typeHint').textContent='';$('typeInput').value='';$('writePrompt').textContent=x[1];clearPad();$('writeResult').classList.add('hidden');$('writeFeedback').textContent='指またはタッチペンで書いて、送信してね。';$('phrasePrompt').textContent=x[1];$('phraseMeaning').textContent='';$('phraseInput').value='';$('writeAnswer').classList.add('hidden')}}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function checkMatch(){let selects=[...document.querySelectorAll('#matchList select')],ok=0;selects.forEach(s=>{let yes=s.value===s.dataset.answer;s.style.borderColor=yes?'#27845c':'#c45162';if(yes)ok++});$('matchFeedback').textContent=ok+' / '+selects.length+' 問正解！';$('matchFeedback').className='feedback '+(ok===5?'good':'bad');if(!matchChecked){score+=ok;matchChecked=true;updateScore()}}
+function nextQuestion(){if(mode==='match'){newRound();return}if(index+1>=pool().length){index=0}else index++;items=[pool()[index]];answered=false;render();$('progressBar').style.width=(index/pool().length*100)+'%'}
+function norm(s){return s.trim().toLowerCase().replace(/\s+/g,' ')}
+function checkTyping(){if(answered)return;let ok=norm($('typeInput').value)===norm(items[0][0]);$('typeFeedback').textContent=ok?'正解！ 🎉':'もう一度確認してみよう。正解：'+items[0][0];$('typeFeedback').className='feedback '+(ok?'good':'bad');if(ok){score++;updateScore()}answered=true}
+function checkPhrase(){if(answered)return;let ok=norm($('phraseInput').value)===norm(items[0][0]);$('phraseFeedback').textContent=ok?'正解！ 🎉':'正解：'+items[0][0];$('phraseFeedback').className='feedback '+(ok?'good':'bad');if(ok){score++;updateScore()}answered=true}
+let ocrWorker=null,handAnswered=false;
+function cleanOCR(s){return s.toLowerCase().replace(/[^a-z0-9']/g,'').trim()}
+async function submitHandwriting(){if(handAnswered)return;const button=$('submitHandwriting');if(!ctx||!canvas.width){resizeCanvas()}const blank=document.createElement('canvas');blank.width=Math.max(canvas.width,900);blank.height=Math.max(canvas.height,380);const bctx=blank.getContext('2d');bctx.fillStyle='#ffffff';bctx.fillRect(0,0,blank.width,blank.height);bctx.drawImage(canvas,0,0,blank.width,blank.height);if(!ctx.getImageData(0,0,canvas.width,canvas.height).data.some((v,i)=>i%4===3&&v>0)){/* canvas is empty */}
+button.disabled=true;$('writeFeedback').className='feedback';$('writeFeedback').textContent='手書き文字を読み取り中…少し待ってね！';try{if(!window.Tesseract)throw new Error('OCRライブラリを読み込めませんでした。インターネット接続を確認してね。');if(!ocrWorker){ocrWorker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text')$('writeFeedback').textContent='読み取り中… '+Math.round((m.progress||0)*100)+'%'}});await ocrWorker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SINGLE_LINE});}const result=await ocrWorker.recognize(blank);const recognized=(result.data.text||'').trim();$('recognizedText').textContent='読み取り結果：'+(recognized||'文字を読み取れませんでした');$('answerText').textContent='正解：'+items[0][0];const ok=cleanOCR(recognized)===cleanOCR(items[0][0]);$('writeResult').classList.remove('hidden');if(ok){$('writeFeedback').textContent='正解！よく書けたね！ 🎉';$('writeFeedback').className='feedback good';$('recognitionNote').textContent='手書き文字を正しく読み取れました。';if(!handAnswered){score++;updateScore()}}else{$('writeFeedback').textContent='不正解、または読み取りがうまくいかなかったみたい。';$('writeFeedback').className='feedback bad';$('recognitionNote').textContent='読み取りが違っていたら、文字を大きく・はっきり書いて再送信してね。';}handAnswered=true;}catch(err){$('writeFeedback').textContent=err.message||'読み取りに失敗しました。もう一度試してね。';$('writeFeedback').className='feedback bad';}finally{button.disabled=false}}
+function clearForRetry(){handAnswered=false;clearPad();$('writeResult').classList.add('hidden');$('writeFeedback').textContent='もう一度書いて送信してね。';$('writeFeedback').className='feedback'}
+function updateScore(){$('score').textContent=score;$('scoreDetail').textContent='正解 '+score+' 回'}
+const canvas=$('pad'),ctx=canvas.getContext('2d');let drawing=false,last=null;
+function resizeCanvas(){let r=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;if(!r.width)return;canvas.width=r.width*dpr;canvas.height=190*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#28334a';}
+function pos(e){let r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+canvas.addEventListener('pointerdown',e=>{drawing=true;last=pos(e);canvas.setPointerCapture(e.pointerId)});
+canvas.addEventListener('pointermove',e=>{if(!drawing)return;let p=pos(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>canvas.addEventListener(ev,()=>drawing=false));
+function clearPad(){if(canvas.width&&canvas.height)ctx.clearRect(0,0,canvas.width,canvas.height);handAnswered=false}
+window.addEventListener('resize',()=>{let img=canvas.toDataURL();resizeCanvas();let im=new Image();im.onload=()=>ctx.drawImage(im,0,0,canvas.clientWidth,canvas.clientHeight);im.src=img});
+resizeCanvas();setMode('match');
+</script>
+</body></html>
